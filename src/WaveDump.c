@@ -54,6 +54,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <string.h>
 
 extern int dc_file[MAX_CH];
@@ -79,7 +80,7 @@ typedef enum  {
     ERR_OUTFILE_WRITE,
 	ERR_OVERTEMP,
 	ERR_BOARD_FAILURE,
-
+    ERR_OUTFILE_OPEN,
     ERR_DUMMY_LAST,
 } ERROR_CODES;
 static char ErrMsg[ERR_DUMMY_LAST][100] = {
@@ -149,6 +150,63 @@ char *time_stamp(){
 		tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec);
 	return timestamp;
 }
+
+/**********************NEW ADDITION FROM JIANYANG**********************/
+
+int WriteRawOut(WaveDumpConfig_t *WDcfg, WaveDumpRun_t *WDrun, char *buffer, uint32_t bufferSize, char *c_t, char* fp)
+{
+    int ns;
+
+    if (!WDrun->fout[0]) {
+        char fname[100];
+        if (WDcfg->ZLEOn == CAEN_DGTZ_ZS_ZLE)
+            sprintf(fname, "%sSanDix_Wave_ZLE_%s.dat", fp, c_t);
+        else
+            sprintf(fname, "%sSanDix_Wave_%s.dat", fp, c_t);
+        if ((WDrun->fout[0] = fopen(fname, "wb")) == NULL)
+            return -1;
+    }
+
+    fwrite(buffer, 1, bufferSize, WDrun->fout[0]);
+    return 0;
+}
+
+void MakePath(char* base_path, char* run_id){
+	char path[600];
+
+	sprintf(path, "%s%s", base_path, run_id);
+	struct stat st = {0};
+
+	printf("\nMaking path %s\n", path);
+
+	if (stat(path, &st)==-1){
+		mkdir(path, 0777);
+	}
+}
+
+ERROR_CODES OpenRawFile(FILE **outfile, int FileIndex, char *path, char *fname, char *run_id) {
+	ERROR_CODES return_code = ERR_NONE;
+	char filename[400];
+	
+	//Jianyang's addition of the timestamp to the file
+	char* c_t = time_stamp();
+	struct stat info;
+	
+	printf("Time stamp is %s \n", c_t);
+	if (stat(path, &info) != 0) {
+		printf("path %s cannot be accessed. Please verify that the selected directory exists and is writable\n", path);
+        return ERR_OUTFILE_OPEN;
+	}
+	if (*outfile != NULL) fclose(*outfile);
+	sprintf(filename, "%s%s/%s_raw_b0_seg%d_%s.bin", path, run_id, fname, FileIndex, c_t);
+	if ((*outfile = fopen(filename, "wb")) == NULL) {
+		printf("output file %s could not be created.\n", filename);
+        return_code = ERR_OUTFILE_OPEN;
+	}
+	return return_code;
+}
+
+/*********************************************************************/
 
 char *make_path(char *c_t, char *op){
 	char *path  = (char *)malloc(sizeof(char) * 200);
@@ -338,7 +396,7 @@ static int CheckBoardFailureStatus(int handle, CAEN_DGTZ_BoardInfo_t BoardInfo) 
 /*! \fn      int ProgramDigitizer(int handle, WaveDumpConfig_t WDcfg)
 *   \brief   configure the digitizer according to the parameters read from
 *            the cofiguration file and saved in the WDcfg data structure
-*
+*   
 *   \param   handle   Digitizer handle
 *   \param   WDcfg:   WaveDumpConfig data structure
 *   \return  0 = Success; negative numbers are error codes
@@ -526,6 +584,10 @@ int ProgramDigitizer(int handle, WaveDumpConfig_t WDcfg, CAEN_DGTZ_BoardInfo_t B
 	//Enable LVDS quartet 0-3	
 	ret |= CAEN_DGTZ_ReadRegister(handle, 0x811C, &fpio_reg_data);
 	ret |= CAEN_DGTZ_WriteRegister(handle, 0x811C, fpio_reg_data&(0xFFFFFFFF-(1<<2)));
+
+    //Enable extended trigger time tag
+	ret |= CAEN_DGTZ_ReadRegister(handle, 0x811C, &fpio_reg_data);
+	ret |= CAEN_DGTZ_WriteRegister(handle, 0x811C, 1<<22);
 
 	//Enable nVETO mode
 	ret |= CAEN_DGTZ_ReadRegister(handle, 0x81A0, &lvds_reg_data);
@@ -1682,26 +1744,6 @@ int WriteOutputFiles(WaveDumpConfig_t *WDcfg, WaveDumpRun_t *WDrun, CAEN_DGTZ_Ev
 
 }
 
-/**********************NEW ADDITION FROM JIANYANG**********************/
-
-int WriteRawOut(WaveDumpConfig_t *WDcfg, WaveDumpRun_t *WDrun, char *buffer, uint32_t bufferSize, char *c_t, char* fp)
-{
-    int ns;
-
-    if (!WDrun->fout[0]) {
-        char fname[100];
-        if (WDcfg->ZLEOn == CAEN_DGTZ_ZS_ZLE)
-            sprintf(fname, "%sSanDix_Wave_ZLE_%s.dat", fp, c_t);
-        else
-            sprintf(fname, "%sSanDix_Wave_%s.dat", fp, c_t);
-        if ((WDrun->fout[0] = fopen(fname, "wb")) == NULL)
-            return -1;
-    }
-
-    fwrite(buffer, 1, bufferSize, WDrun->fout[0]);
-    return 0;
-}
-
 
 /*! Rewrite channels data to a single file:
  * 
@@ -1927,8 +1969,18 @@ int main(int argc, char *argv[])
     int  handle = -1;
     ERROR_CODES ErrCode= ERR_NONE;
     int MaxEventsSaved = atoi(argv[2]);
-    char OutputSavePath[300];
+    char OutputSavePath[600];
     strcpy(OutputSavePath, argv[3]);
+    char OutputDataName[100];
+    strcpy(OutputDataName, argv[4]);
+    FILE **RawFile;
+    RawFile = (FILE**)calloc(1, sizeof(FILE*));
+
+    int MaxEventsSegment = 1000;
+    if (argc == 6)
+        MaxEventsSegment = atoi(argv[5]);
+
+    struct stat buf;
     int NumEventsSaved = 0;
     int i, ch, Nb=0, Ne=0;
     uint32_t AllocatedSize, BufferSize, NumEvents;
@@ -2255,6 +2307,14 @@ Restart:
     /* Readout Loop                                                                            */
     /* *************************************************************************************** */
     int counter = 0;
+    int NumEventsThisSegment = 0;
+    int RawFileIndex = 0;
+    bool NewFile = true;
+
+
+    char* runID;
+    runID = time_stamp();
+    MakePath(OutputSavePath, runID);
     while(!WDrun.Quit) {
 		if (NumEventsSaved>=MaxEventsSaved){
 			break;
@@ -2265,6 +2325,11 @@ Restart:
 			TurnOnDataTaking(handle, &WDrun, &WDcfg, BoardInfo);
 		}
 		
+        if (NewFile){
+            OpenRawFile(&RawFile[0], RawFileIndex, OutputSavePath, OutputDataName, runID);
+            NewFile = false;
+        }
+
         // Check for keyboard commands (key pressed)
         CheckKeyboardCommands(handle, &WDrun, &WDcfg, BoardInfo);
         if (WDrun.Restart) {
@@ -2380,10 +2445,18 @@ Restart:
             PrevRateTime = CurrentTime;
         }
 
-        WriteRawOut(&WDcfg, &WDrun, buffer, BufferSize, c_t, OutputSavePath);
+        // WriteRawOut(&WDcfg, &WDrun, buffer, BufferSize, c_t, OutputSavePath);
+        fwrite(buffer, 1, BufferSize, RawFile[0]);
         NumEventsSaved+=NumEvents;
+        NumEventsThisSegment+=NumEvents;
         if (NumEventsSaved>=MaxEventsSaved){
             break;
+        }
+        
+        if (NumEventsThisSegment>MaxEventsSegment){
+            NumEventsThisSegment = 0;
+            NewFile = true;
+            RawFileIndex++;
         }
 
         /* Analyze data */
