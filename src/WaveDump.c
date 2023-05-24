@@ -56,6 +56,10 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <time.h>
+
+#include <stdint.h>
+#include <inttypes.h>
 
 extern int dc_file[MAX_CH];
 extern int thr_file[MAX_CH];
@@ -575,33 +579,33 @@ int ProgramDigitizer(int handle, WaveDumpConfig_t WDcfg, CAEN_DGTZ_BoardInfo_t B
     }
 
     if (WDcfg.LVDSVeto == 2) {
-	printf("Using the LVDS as an external veto\n");
-	    
-	//Enable new LVDS settings
-	ret |= CAEN_DGTZ_ReadRegister(handle, 0x811C, &fpio_reg_data);
-	ret |= CAEN_DGTZ_WriteRegister(handle, 0x811C, fpio_reg_data|(1<<8));
+        printf("Using the LVDS as an external veto\n");
+            
+        //Enable new LVDS settings
+        ret |= CAEN_DGTZ_ReadRegister(handle, 0x811C, &fpio_reg_data);
+        ret |= CAEN_DGTZ_WriteRegister(handle, 0x811C, fpio_reg_data|(1<<8));
 
-	//Enable LVDS quartet 0-3	
-	ret |= CAEN_DGTZ_ReadRegister(handle, 0x811C, &fpio_reg_data);
-	ret |= CAEN_DGTZ_WriteRegister(handle, 0x811C, fpio_reg_data&(0xFFFFFFFF-(1<<2)));
+        //Enable LVDS quartet 0-3	
+        ret |= CAEN_DGTZ_ReadRegister(handle, 0x811C, &fpio_reg_data);
+        ret |= CAEN_DGTZ_WriteRegister(handle, 0x811C, fpio_reg_data&(0xFFFFFFFF-(1<<2)));
+
+        //Enable nVETO mode
+        ret |= CAEN_DGTZ_ReadRegister(handle, 0x81A0, &lvds_reg_data);
+        ret |= CAEN_DGTZ_WriteRegister(handle, 0x81A0, (lvds_reg_data&(0xFFFFFFF0))|(1<<1));
+
+        //Enable LVDS veto for acquisition control	
+        ret |= CAEN_DGTZ_ReadRegister(handle, 0x8100, &acq_ctrl_reg_data);
+        ret |= CAEN_DGTZ_WriteRegister(handle, 0x8100, acq_ctrl_reg_data|(1<<9));
+    }
 
     //Enable extended trigger time tag
 	ret |= CAEN_DGTZ_ReadRegister(handle, 0x811C, &fpio_reg_data);
-	ret |= CAEN_DGTZ_WriteRegister(handle, 0x811C, 1<<22);
-
-	//Enable nVETO mode
-	ret |= CAEN_DGTZ_ReadRegister(handle, 0x81A0, &lvds_reg_data);
-	ret |= CAEN_DGTZ_WriteRegister(handle, 0x81A0, (lvds_reg_data&(0xFFFFFFF0))|(1<<1));
-
-	//Enable LVDS veto for acquisition control	
-	ret |= CAEN_DGTZ_ReadRegister(handle, 0x8100, &acq_ctrl_reg_data);
-	ret |= CAEN_DGTZ_WriteRegister(handle, 0x8100, acq_ctrl_reg_data|(1<<9));
-    }
+	ret |= CAEN_DGTZ_WriteRegister(handle, 0x811C, ((fpio_reg_data)|(1<<22)));
 
     ret |= CAEN_DGTZ_ReadRegister(handle, 0x810C, &global_trigger_reg_data);
     ret |= CAEN_DGTZ_ReadRegister(handle, 0x81A0, &lvds_reg_data);
     ret |= CAEN_DGTZ_ReadRegister(handle, 0x8100, &acq_ctrl_reg_data);
-
+ret |= CAEN_DGTZ_ReadRegister(handle, 0x811C, &fpio_reg_data);
     ret |= CAEN_DGTZ_ReadRegister(handle, 0x8000, &board_config_reg_data);
 
     printf("Global trigger register: %u\n", global_trigger_reg_data);
@@ -2315,6 +2319,34 @@ Restart:
     char* runID;
     runID = time_stamp();
     MakePath(OutputSavePath, runID);
+
+    FILE *metadata;
+    // FILE *deadtimes;
+    char metadata_path[600];//, deadtime_path[600];
+    sprintf(metadata_path, "%s%s/metadata_%s.ini", OutputSavePath, runID, runID);
+    // sprintf(deadtime_path, "%s%s/deadtimes_%s.bin", cExternalOutPath, runID, runID);
+    metadata = fopen(metadata_path, "w+");
+    // deadtimes = fopen(deadtime_path, "w+");
+    fputs("[metadata]\n", metadata);
+    fputs("UnixTime = ", metadata);
+    char timestamp_buffer[100];
+    // std::chrono::time_point<std::chrono::high_resolution_clock> time_start = std::chrono::high_resolution_clock::now();
+    // unsigned long time_start_ns = std::chrono::time_point_cast<std::chrono::nanoseconds> (time_start).time_since_epoch().count();
+    
+    long int ns;
+    uint64_t unix_time_start_ns;
+    time_t sec;
+    struct timespec spec;
+
+    clock_gettime(CLOCK_REALTIME, &spec);
+    sec = spec.tv_sec;
+    ns = spec.tv_nsec;
+
+    unix_time_start_ns = (uint64_t) sec * 1000000000L + (uint64_t) ns;
+
+    sprintf(timestamp_buffer, "%lu", unix_time_start_ns);
+    fputs(timestamp_buffer, metadata);
+    fclose(metadata);
     while(!WDrun.Quit) {
 		if (NumEventsSaved>=MaxEventsSaved){
 			break;
