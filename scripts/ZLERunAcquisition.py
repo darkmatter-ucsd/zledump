@@ -12,7 +12,7 @@ FileNum = int(sys.argv[3])
 Path = sys.argv[4]
 
 for i in range(FileNum):
-	subp.call(f"./../zledump/build/zle_exe {ConfigFile} {EventNum} {Path}/", shell=True)
+	subp.call(f"./../zledump/build/zle_exe {ConfigFile} {EventNum} {Path}/ >> {Path}/log.txt", shell=True)
 	#print i
 	time.sleep(2)
 	

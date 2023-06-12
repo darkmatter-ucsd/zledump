@@ -150,7 +150,7 @@ char *time_stamp(){
 	struct tm *tm;
 	tm=localtime(&ltime);
 
-	sprintf(timestamp,"%04d%02d%02dT%02d%02d%02d", tm->tm_year+1900, tm->tm_mon, 
+	sprintf(timestamp,"%04d%02d%02dT%02d%02d%02d", tm->tm_year+1900, tm->tm_mon+1, 
 		tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec);
 	return timestamp;
 }
@@ -175,10 +175,11 @@ int WriteRawOut(WaveDumpConfig_t *WDcfg, WaveDumpRun_t *WDrun, char *buffer, uin
     return 0;
 }
 
-void MakePath(char* base_path, char* run_id){
+// void MakePath(char* base_path, char* run_id){
+void MakePath(char* base_path){
 	char path[600];
 
-	sprintf(path, "%s%s", base_path, run_id);
+	sprintf(path, "%s", base_path);
 	struct stat st = {0};
 
 	printf("\nMaking path %s\n", path);
@@ -188,7 +189,8 @@ void MakePath(char* base_path, char* run_id){
 	}
 }
 
-ERROR_CODES OpenRawFile(FILE **outfile, int FileIndex, char *path, char *fname, char *run_id) {
+// ERROR_CODES OpenRawFile(FILE **outfile, int FileIndex, char *path, char *fname, char *run_id) {
+ERROR_CODES OpenRawFile(FILE **outfile, int FileIndex, char *path, char *fname) {
 	ERROR_CODES return_code = ERR_NONE;
 	char filename[400];
 	
@@ -202,8 +204,9 @@ ERROR_CODES OpenRawFile(FILE **outfile, int FileIndex, char *path, char *fname, 
         return ERR_OUTFILE_OPEN;
 	}
 	if (*outfile != NULL) fclose(*outfile);
-	sprintf(filename, "%s%s/%s_raw_b0_seg%d_%s.bin", path, run_id, fname, FileIndex, c_t);
-	if ((*outfile = fopen(filename, "wb")) == NULL) {
+	// sprintf(filename, "%s%s/%s_raw_b0_seg%d_%s.bin", path, run_id, fname, FileIndex, c_t);
+    sprintf(filename, "%s/%s_raw_b0_seg%d_%s.bin", path, fname, FileIndex, c_t);
+    if ((*outfile = fopen(filename, "wb")) == NULL) {
 		printf("output file %s could not be created.\n", filename);
         return_code = ERR_OUTFILE_OPEN;
 	}
@@ -2318,12 +2321,12 @@ Restart:
 
     char* runID;
     runID = time_stamp();
-    MakePath(OutputSavePath, runID);
+    MakePath(OutputSavePath);
 
     FILE *metadata;
     // FILE *deadtimes;
     char metadata_path[600];//, deadtime_path[600];
-    sprintf(metadata_path, "%s%s/metadata_%s.ini", OutputSavePath, runID, runID);
+    sprintf(metadata_path, "%s/metadata_%s.ini", OutputSavePath, runID);
     // sprintf(deadtime_path, "%s%s/deadtimes_%s.bin", cExternalOutPath, runID, runID);
     metadata = fopen(metadata_path, "w+");
     // deadtimes = fopen(deadtime_path, "w+");
@@ -2358,7 +2361,8 @@ Restart:
 		}
 		
         if (NewFile){
-            OpenRawFile(&RawFile[0], RawFileIndex, OutputSavePath, OutputDataName, runID);
+            // OpenRawFile(&RawFile[0], RawFileIndex, OutputSavePath, OutputDataName, runID);
+            OpenRawFile(&RawFile[0], RawFileIndex, OutputSavePath, OutputDataName);
             NewFile = false;
         }
 
