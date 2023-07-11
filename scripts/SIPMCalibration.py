@@ -5,8 +5,11 @@ import numpy as np
 import os
 
 """
+To use:
+    python3 SIPMCalibration.py [ConfigFile] [EventNum] [SipmNum] [Temp] [Voltage] [StoreDir]
+
 example:
-    python3 SIPMCalibration.py /home/waterbarque/sipm_test/zledump/sipm_test_config.txt 10000 522 -98 52
+    python3 SIPMCalibration.py /home/waterbarque/sipm_test/zledump/sipm_test_config.txt 10000 522 -98 52 /home/waterbarque/sipm_data
 """
 
 try:
@@ -15,15 +18,16 @@ try:
     SipmNum = int(sys.argv[3])
     Temperature = int(sys.argv[4])
     Voltage = np.round(float(sys.argv[5]))
+    StoreDir = sys.argv[6]
+
 except Exception as e:
     print("Error:",e)
     print("""Missing input. Please use the script in this way:
-python3 SIPMCalibration.py [ConfigFile] [EventNum] [SipmNum] [Temperature] [Voltage]""")
+python3 SIPMCalibration.py [ConfigFile] [EventNum] [SipmNum] [Temperature] [Voltage] [StoreDir]""")
 
-store_dir = "/home/waterbarque/sipm_test/sipm_data"
 current_folder = f"sipm_{SipmNum}"
 
-full_output_dir = os.path.join(store_dir,current_folder)
+full_output_dir = os.path.join(StoreDir,current_folder)
 if not os.path.exists(full_output_dir):
     os.mkdir(full_output_dir, mode=0o777)
     print(f"folder {full_output_dir} doesn't exist, just created")
