@@ -6,26 +6,27 @@ import os
 
 """
 To use:
-    python3 SIPMCalibration.py [ConfigFile] [EventNum] [SipmNum] [Temp] [Voltage] [StoreDir]
+    python3 SIPMCalibration.py [ConfigFile] [Threshold] [EventNum] [GroupNum] [Temp] [Voltage] [StoreDir] [MaxEvent(per segment)] [Channels]
 
-example:
-    python3 SIPMCalibration.py /home/waterbarque/sipm_test/zledump/sipm_test_config.txt 10000 522 -98 52 /home/waterbarque/sipm_data
 """
 
 try:
     ConfigFile = sys.argv[1]
-    EventNum = int(sys.argv[2])
-    SipmNum = int(sys.argv[3])
-    Temperature = int(sys.argv[4])
-    Voltage = np.round(float(sys.argv[5]))
-    StoreDir = sys.argv[6]
+    Threshold = sys.argv[2]
+    EventNum = int(sys.argv[3])
+    GroupNum = int(sys.argv[4])
+    Temperature = np.round(float(sys.argv[5]))
+    Voltage = np.round(float(sys.argv[6]))
+    StoreDir = sys.argv[7]
+    MaxEvent = int(sys.argv[8])
+    Channels = sys.argv[9]
 
 except Exception as e:
     print("Error:",e)
     print("""Missing input. Please use the script in this way:
-python3 SIPMCalibration.py [ConfigFile] [EventNum] [SipmNum] [Temperature] [Voltage] [StoreDir]""")
+python3 SIPMCalibration.py [ConfigFile] [Threshold] [EventNum] [GroupNum] [Temperature] [Voltage] [StoreDir] [MaxEvent(per segment)] [Channels]""")
 
-current_folder = f"sipm_{SipmNum}"
+current_folder = f"sipm_{GroupNum}"
 
 full_output_dir = os.path.join(StoreDir,current_folder)
 if not os.path.exists(full_output_dir):
@@ -34,9 +35,9 @@ if not os.path.exists(full_output_dir):
 else:
     print(f"folder {full_output_dir} already exists")
 
-tag = f"sipm{SipmNum}_{Temperature}C_{Voltage}V_{EventNum}"
+tag = f"sipm_group{GroupNum}_threshold{Threshold}_{Temperature}C_{Voltage}V_{MaxEvent}_{Channels}"
 print(f"tag is {tag}")
-command = f"./../build/zle_exe {ConfigFile} {EventNum} {full_output_dir}/ {tag}"
+command = f"./../build/zle_exe {ConfigFile} {EventNum} {full_output_dir}/ {tag} {MaxEvent}"
 log_file = open(f"{full_output_dir}/log.txt","a")
 
 subp.call(f"{command}",shell=True)

@@ -608,7 +608,7 @@ int ProgramDigitizer(int handle, WaveDumpConfig_t WDcfg, CAEN_DGTZ_BoardInfo_t B
     ret |= CAEN_DGTZ_ReadRegister(handle, 0x810C, &global_trigger_reg_data);
     ret |= CAEN_DGTZ_ReadRegister(handle, 0x81A0, &lvds_reg_data);
     ret |= CAEN_DGTZ_ReadRegister(handle, 0x8100, &acq_ctrl_reg_data);
-ret |= CAEN_DGTZ_ReadRegister(handle, 0x811C, &fpio_reg_data);
+    ret |= CAEN_DGTZ_ReadRegister(handle, 0x811C, &fpio_reg_data);
     ret |= CAEN_DGTZ_ReadRegister(handle, 0x8000, &board_config_reg_data);
 
     printf("Global trigger register: %u\n", global_trigger_reg_data);

@@ -121,7 +121,7 @@ typedef struct {
     int InterruptNumEvents;
     int TestPattern;
     CAEN_DGTZ_EnaDis_t DesMode;
-    //int TriggerEdge;
+    int TriggerEdge;
     CAEN_DGTZ_IOLevel_t FPIOtype;
     CAEN_DGTZ_TriggerMode_t ExtTriggerMode;
     uint16_t EnableMask;

@@ -299,14 +299,14 @@ int ParseConfigFile(FILE *f_ini, WaveDumpConfig_t *WDcfg)
 		}
 
         // Trigger Edge
-		/*if (strstr(str, "TRIGGER_EDGE")!=NULL) {
+		if (strstr(str, "TRIGGER_EDGE")!=NULL) {
 			read = fscanf(f_ini, "%s", str1);
 			if (strcmp(str1, "FALLING")==0)
 				WDcfg->TriggerEdge = 1;
 			else if (strcmp(str1, "RISING")!=0)
 				printf("%s: invalid option\n", str);
 			continue;
-		}*/
+		}
 
         // External Trigger (DISABLED, ACQUISITION_ONLY, ACQUISITION_AND_TRGOUT)
 		if (strstr(str, "EXTERNAL_TRIGGER")!=NULL) {
